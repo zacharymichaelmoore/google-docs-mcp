@@ -1,6 +1,6 @@
 # Claude MCP x Google Docs
 
-[Watch the Demo Video (Click to Play/Download)](https://github.com/a-bonus/google-docs-mcp/releases/download/v0.1.0/google.docs.mcp.1.mp4)
+![Demo Animation](assets/google.docs.mcp.1.gif)
 
 Connect Claude Desktop (or other MCP clients) to your Google Docs!
 
