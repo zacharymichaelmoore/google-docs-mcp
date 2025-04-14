@@ -42,38 +42,37 @@ function hexToRgbColor(hex: string): docs_v1.Schema$RgbColor | null {
 }
 
 // --- Zod Schema for the formatText tool ---
-const FormatTextParameters = z.object({
-  documentId: z.string().describe('The ID of the Google Document.'),
-  startIndex: z.number().int().min(1).describe('The starting index of the text range (inclusive, starts from 1).'),
-  endIndex: z.number().int().min(1).describe('The ending index of the text range (inclusive).'),
-  // Optional Formatting Parameters
-  bold: z.boolean().optional().describe('Apply bold formatting.'),
-  italic: z.boolean().optional().describe('Apply italic formatting.'),
-  underline: z.boolean().optional().describe('Apply underline formatting.'),
-  strikethrough: z.boolean().optional().describe('Apply strikethrough formatting.'),
-  fontSize: z.number().min(1).optional().describe('Set font size (in points, e.g., 12).'),
-  fontFamily: z.string().optional().describe('Set font family (e.g., "Arial", "Times New Roman").'),
-  foregroundColor: z.string()
-    .refine(validateHexColor, { message: "Invalid hex color format (e.g., #FF0000 or #F00)" })
-    .optional()
-    .describe('Set text color using hex format (e.g., "#FF0000").'),
-  backgroundColor: z.string()
-    .refine(validateHexColor, { message: "Invalid hex color format (e.g., #00FF00 or #0F0)" })
-    .optional()
-    .describe('Set text background color using hex format (e.g., "#FFFF00").'),
-  linkUrl: z.string().url().optional().describe('Make the text a hyperlink pointing to this URL.')
-})
-.refine(data => data.endIndex >= data.startIndex, {
-  message: "endIndex must be greater than or equal to startIndex",
-  path: ["endIndex"], // Point error to endIndex field
-})
-.refine(data => Object.keys(data).some(key => !['documentId', 'startIndex', 'endIndex'].includes(key) && data[key as keyof typeof data] !== undefined), {
-    message: "At least one formatting option (bold, italic, fontSize, etc.) must be provided."
-    // No specific path, applies to the whole object
-});
+// const FormatTextParameters = z.object({
+//   documentId: z.string().describe('The ID of the Google Document.'),
+//   startIndex: z.number().int().min(1).describe('The starting index of the text range (inclusive, starts from 1).'),
+//   endIndex: z.number().int().min(1).describe('The ending index of the text range (inclusive).'),
+//   // Optional Formatting Parameters (SHARED)
+//   bold: z.boolean().optional().describe('Apply bold formatting.'),
+//   italic: z.boolean().optional().describe('Apply italic formatting.'),
+//   underline: z.boolean().optional().describe('Apply underline formatting.'),
+//   strikethrough: z.boolean().optional().describe('Apply strikethrough formatting.'),
+//   fontSize: z.number().min(1).optional().describe('Set font size (in points, e.g., 12).'),
+//   fontFamily: z.string().optional().describe('Set font family (e.g., "Arial", "Times New Roman").'),
+//   foregroundColor: z.string()
+//     .refine(validateHexColor, { message: "Invalid hex color format (e.g., #FF0000 or #F00)" })
+//     .optional()
+//     .describe('Set text color using hex format (e.g., "#FF0000").'),
+//   backgroundColor: z.string()
+//     .refine(validateHexColor, { message: "Invalid hex color format (e.g., #00FF00 or #0F0)" })
+//     .optional()
+//     .describe('Set text background color using hex format (e.g., "#FFFF00").'),
+//   linkUrl: z.string().url().optional().describe('Make the text a hyperlink pointing to this URL.')
+// })
+// .refine(data => data.endIndex >= data.startIndex, {
+//   message: "endIndex must be greater than or equal to startIndex",
+//   path: ["endIndex"],
+// })
+// .refine(data => Object.keys(data).some(key => !['documentId', 'startIndex', 'endIndex'].includes(key) && data[key as keyof typeof data] !== undefined), {
+//     message: "At least one formatting option (bold, italic, fontSize, etc.) must be provided."
+// });
 
 // --- Define the TypeScript type based on the schema ---
-type FormatTextArgs = z.infer<typeof FormatTextParameters>;
+// type FormatTextArgs = z.infer<typeof FormatTextParameters>;
 
 // --- Zod Schema for the NEW formatMatchingText tool ---
 const FormatMatchingTextParameters = z.object({
@@ -105,7 +104,7 @@ const FormatMatchingTextParameters = z.object({
 type FormatMatchingTextArgs = z.infer<typeof FormatMatchingTextParameters>;
 
 // --- Helper function to build TextStyle and fields mask (reusable) ---
-function buildTextStyleAndFields(args: Omit<FormatMatchingTextArgs | FormatTextArgs, 'documentId' | 'startIndex' | 'endIndex' | 'textToFind' | 'matchInstance'>): { textStyle: docs_v1.Schema$TextStyle, fields: string[] } {
+function buildTextStyleAndFields(args: Omit<FormatMatchingTextArgs, 'documentId' | 'textToFind' | 'matchInstance'>): { textStyle: docs_v1.Schema$TextStyle, fields: string[] } {
     const textStyle: docs_v1.Schema$TextStyle = {};
     const fieldsToUpdate: string[] = [];
 
@@ -256,7 +255,7 @@ server.addTool({
   },
 });
 
-// --- Add the NEW formatMatchingText tool ---
+// --- Add the formatMatchingText tool ---
 server.addTool({
     name: 'formatMatchingText',
     description: 'Finds specific text within a Google Document and applies character formatting (bold, italics, color, etc.) to the specified instance.',
@@ -401,49 +400,49 @@ server.addTool({
 });
 
 // Tool: Format Text (existing, keep for index-based formatting if needed)
-server.addTool({
-  name: 'formatText',
-  description: 'Applies character formatting (bold, italics, font size, color, link, etc.) to a specific text range in a Google Document using start/end indices.',
-  parameters: FormatTextParameters, // Use the original Zod schema
-  execute: async (args: FormatTextArgs, { log }) => {
-    const { googleDocs: docs } = await initializeGoogleClient();
-    if (!docs) {
-      throw new UserError("Google Docs client is not initialized. Authentication might have failed.");
-    }
-
-    log.info(`Attempting to format text in doc: ${args.documentId}, range: ${args.startIndex}-${args.endIndex}`);
-
-    // 1. Build the TextStyle object and fields mask
-    const { textStyle, fields } = buildTextStyleAndFields(args);
-
-    // 2. Build the UpdateTextStyleRequest
-    const updateTextStyleRequest: docs_v1.Schema$UpdateTextStyleRequest = {
-      range: {
-        startIndex: args.startIndex,
-        endIndex: args.endIndex,
-      },
-      textStyle: textStyle,
-      fields: fields.join(','),
-    };
-
-    // 3. Send the batchUpdate request
-    try {
-      await docs.documents.batchUpdate({
-        documentId: args.documentId,
-        requestBody: {
-          requests: [{ updateTextStyle: updateTextStyleRequest }],
-        },
-      });
-      log.info(`Successfully formatted text in doc: ${args.documentId}, range: ${args.startIndex}-${args.endIndex}`);
-      return `Successfully applied formatting to range ${args.startIndex}-${args.endIndex}.`;
-    } catch (error: any) {
-      log.error(`Error formatting text in doc ${args.documentId}: ${error.message}`);
-       if (error.code === 404) throw new UserError(`Doc not found (ID: ${args.documentId}).`);
-       if (error.code === 403) throw new UserError(`Permission denied for doc (ID: ${args.documentId}).`);
-      throw new UserError(`Failed to format text: ${error.message}`);
-    }
-  },
-});
+// server.addTool({
+//   name: 'formatText',
+//   description: 'Applies character formatting (bold, italics, font size, color, link, etc.) to a specific text range in a Google Document using start/end indices.',
+//   parameters: FormatTextParameters, // Use the original Zod schema
+//   execute: async (args: FormatTextArgs, { log }) => {
+//     const { googleDocs: docs } = await initializeGoogleClient();
+//     if (!docs) {
+//       throw new UserError("Google Docs client is not initialized. Authentication might have failed.");
+//     }
+//
+//     log.info(`Attempting to format text in doc: ${args.documentId}, range: ${args.startIndex}-${args.endIndex}`);
+//
+//     // 1. Build the TextStyle object and fields mask
+//     const { textStyle, fields } = buildTextStyleAndFields(args);
+//
+//     // 2. Build the UpdateTextStyleRequest
+//     const updateTextStyleRequest: docs_v1.Schema$UpdateTextStyleRequest = {
+//       range: {
+//         startIndex: args.startIndex,
+//         endIndex: args.endIndex,
+//       },
+//       textStyle: textStyle,
+//       fields: fields.join(','),
+//     };
+//
+//     // 3. Send the batchUpdate request
+//     try {
+//       await docs.documents.batchUpdate({
+//         documentId: args.documentId,
+//         requestBody: {
+//           requests: [{ updateTextStyle: updateTextStyleRequest }],
+//         },
+//       });
+//       log.info(`Successfully formatted text in doc: ${args.documentId}, range: ${args.startIndex}-${args.endIndex}`);
+//       return `Successfully applied formatting to range ${args.startIndex}-${args.endIndex}.`;
+//     } catch (error: any) {
+//       log.error(`Error formatting text in doc ${args.documentId}: ${error.message}`);
+//        if (error.code === 404) throw new UserError(`Doc not found (ID: ${args.documentId}).`);
+//        if (error.code === 403) throw new UserError(`Permission denied for doc (ID: ${args.documentId}).`);
+//       throw new UserError(`Failed to format text: ${error.message}`);
+//     }
+//   },
+// });
 
 // Start the Server (Modified to avoid server.config issue)
 async function startServer() {
