@@ -8,6 +8,8 @@ This server uses the Model Context Protocol (MCP) and the `fastmcp` library to p
 
 - **Read Documents:** Provides a `readGoogleDoc` tool to fetch the text content of a specified Google Doc.
 - **Append to Documents:** Provides an `appendToGoogleDoc` tool to add text to the end of a specified Google Doc.
+- **Format Text (by Index):** Provides a `formatText` tool to apply character formatting (bold, color, etc.) to a specific range using `startIndex` and `endIndex`.
+- **Format Text (by Content):** Provides a `formatMatchingText` tool to find specific text and apply character formatting to it. This is more robust than using indices.
 - **Google Authentication:** Handles the OAuth 2.0 flow to securely authorize access to your Google Account.
 - **MCP Compliant:** Designed for use with MCP clients like Claude Desktop.
 
@@ -174,6 +176,8 @@ Once configured, you should be able to use the tools in your chats with Claude:
 - "Use the `google-docs-mcp` server to read the document with ID `YOUR_GOOGLE_DOC_ID`."
 - "Can you get the content of Google Doc `YOUR_GOOGLE_DOC_ID`?"
 - "Append 'This was added by Claude!' to document `YOUR_GOOGLE_DOC_ID` using the `google-docs-mcp` tool."
+- "Using `google-docs-mcp`, make the text 'Important Section' bold in document `YOUR_GOOGLE_DOC_ID` using the `formatMatchingText` tool."
+- "Use `formatMatchingText` via `google-docs-mcp` to find the first instance of 'Project Alpha' and make it blue (#0000FF) in doc `YOUR_GOOGLE_DOC_ID`."
 
 Remember to replace `YOUR_GOOGLE_DOC_ID` with the actual ID from a Google Doc's URL (the long string between `/d/` and `/edit`).
 
