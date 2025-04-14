@@ -1,6 +1,9 @@
-/Users/alayn/Documents/mcp-googledocs-server/google docs mcp.mp4
+# Claude MCP x Google Docs
 
-# FastMCP Google Docs Server
+<video width="100%" controls>
+  <source src="https://github.com/a-bonus/google-docs-mcp/releases/download/v0.1.0/google.docs.mcp.1.mp4" type="video/mp4">
+  Your browser does not support the video tag. You can <a href="https://github.com/a-bonus/google-docs-mcp/releases/download/v0.1.0/google.docs.mcp.1.mp4">download the video here</a>.
+</video>
 
 Connect Claude Desktop (or other MCP clients) to your Google Docs!
 
