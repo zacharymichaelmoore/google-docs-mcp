@@ -1,3 +1,5 @@
+/Users/alayn/Documents/mcp-googledocs-server/google docs mcp.mp4
+
 # FastMCP Google Docs Server
 
 Connect Claude Desktop (or other MCP clients) to your Google Docs!
