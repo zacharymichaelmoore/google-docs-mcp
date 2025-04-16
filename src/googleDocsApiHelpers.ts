@@ -181,36 +181,81 @@ try {
 }
 
 // --- Paragraph Boundary Helper ---
-// Finds the paragraph containing a given index. Very simplified.
-// A robust version needs to understand structural elements better.
+// Enhanced version to handle document structural elements more robustly
 export async function getParagraphRange(docs: Docs, documentId: string, indexWithin: number): Promise<{ startIndex: number; endIndex: number } | null> {
 try {
-const res = await docs.documents.get({
-documentId,
-// Request paragraph elements and their ranges
-fields: 'body(content(startIndex,endIndex,paragraph))',
-});
+    console.log(`Finding paragraph containing index ${indexWithin} in document ${documentId}`);
+    
+    // Request more detailed document structure to handle nested elements
+    const res = await docs.documents.get({
+        documentId,
+        // Request more comprehensive structure information
+        fields: 'body(content(startIndex,endIndex,paragraph,table,sectionBreak,tableOfContents))',
+    });
 
-        if (!res.data.body?.content) return null;
+    if (!res.data.body?.content) {
+        console.warn(`No content found in document ${documentId}`);
+        return null;
+    }
 
-        for (const element of res.data.body.content) {
-            if (element.paragraph && element.startIndex && element.endIndex) {
-                // Check if the provided index falls within this paragraph element's range
-                // API ranges are typically [startIndex, endIndex)
+    // Find paragraph containing the index
+    // We'll look at all structural elements recursively
+    const findParagraphInContent = (content: any[]): { startIndex: number; endIndex: number } | null => {
+        for (const element of content) {
+            // Check if we have element boundaries defined
+            if (element.startIndex !== undefined && element.endIndex !== undefined) {
+                // Check if index is within this element's range first
                 if (indexWithin >= element.startIndex && indexWithin < element.endIndex) {
-                    return { startIndex: element.startIndex, endIndex: element.endIndex };
+                    // If it's a paragraph, we've found our target
+                    if (element.paragraph) {
+                        console.log(`Found paragraph containing index ${indexWithin}, range: ${element.startIndex}-${element.endIndex}`);
+                        return { 
+                            startIndex: element.startIndex, 
+                            endIndex: element.endIndex 
+                        };
+                    }
+                    
+                    // If it's a table, we need to check cells recursively
+                    if (element.table && element.table.tableRows) {
+                        console.log(`Index ${indexWithin} is within a table, searching cells...`);
+                        for (const row of element.table.tableRows) {
+                            if (row.tableCells) {
+                                for (const cell of row.tableCells) {
+                                    if (cell.content) {
+                                        const result = findParagraphInContent(cell.content);
+                                        if (result) return result;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // For other structural elements, we didn't find a paragraph
+                    // but we know the index is within this element
+                    console.warn(`Index ${indexWithin} is within element (${element.startIndex}-${element.endIndex}) but not in a paragraph`);
                 }
             }
         }
-        return null; // Index not found within any paragraph element
+        
+        return null;
+    };
 
-    } catch (error: any) {
-        console.error(`Error getting paragraph range for index ${indexWithin} in doc ${documentId}: ${error.message}`);
-         if (error.code === 404) throw new UserError(`Document not found while finding paragraph range (ID: ${documentId}).`);
-         if (error.code === 403) throw new UserError(`Permission denied while finding paragraph range in doc (ID: ${documentId}).`);
-        throw new Error(`Failed to retrieve doc for paragraph range finding: ${error.message}`);
+    const paragraphRange = findParagraphInContent(res.data.body.content);
+    
+    if (!paragraphRange) {
+        console.warn(`Could not find paragraph containing index ${indexWithin}`);
+    } else {
+        console.log(`Returning paragraph range: ${paragraphRange.startIndex}-${paragraphRange.endIndex}`);
     }
+    
+    return paragraphRange;
 
+} catch (error: any) {
+    console.error(`Error getting paragraph range for index ${indexWithin} in doc ${documentId}: ${error.message || 'Unknown error'}`);
+    if (error.code === 404) throw new UserError(`Document not found while finding paragraph (ID: ${documentId}).`);
+    if (error.code === 403) throw new UserError(`Permission denied while accessing doc ${documentId}.`);
+    throw new Error(`Failed to find paragraph: ${error.message || 'Unknown error'}`);
+}
 }
 
 // --- Style Request Builders ---
@@ -262,29 +307,76 @@ startIndex: number,
 endIndex: number,
 style: ParagraphStyleArgs
 ): { request: docs_v1.Schema$Request, fields: string[] } | null {
+    // Create style object and track which fields to update
     const paragraphStyle: docs_v1.Schema$ParagraphStyle = {};
-const fieldsToUpdate: string[] = [];
+    const fieldsToUpdate: string[] = [];
 
-    if (style.alignment !== undefined) { paragraphStyle.alignment = style.alignment; fieldsToUpdate.push('alignment'); }
-    if (style.indentStart !== undefined) { paragraphStyle.indentStart = { magnitude: style.indentStart, unit: 'PT' }; fieldsToUpdate.push('indentStart'); }
-    if (style.indentEnd !== undefined) { paragraphStyle.indentEnd = { magnitude: style.indentEnd, unit: 'PT' }; fieldsToUpdate.push('indentEnd'); }
-    if (style.spaceAbove !== undefined) { paragraphStyle.spaceAbove = { magnitude: style.spaceAbove, unit: 'PT' }; fieldsToUpdate.push('spaceAbove'); }
-    if (style.spaceBelow !== undefined) { paragraphStyle.spaceBelow = { magnitude: style.spaceBelow, unit: 'PT' }; fieldsToUpdate.push('spaceBelow'); }
-    if (style.namedStyleType !== undefined) { paragraphStyle.namedStyleType = style.namedStyleType; fieldsToUpdate.push('namedStyleType'); }
-    if (style.keepWithNext !== undefined) { paragraphStyle.keepWithNext = style.keepWithNext; fieldsToUpdate.push('keepWithNext'); }
-     // TODO: Handle borders, clearing formatting
+    console.log(`Building paragraph style request for range ${startIndex}-${endIndex} with options:`, style);
 
-    if (fieldsToUpdate.length === 0) return null; // No styles to apply
+    // Process alignment option (LEFT, CENTER, RIGHT, JUSTIFIED)
+    if (style.alignment !== undefined) { 
+        paragraphStyle.alignment = style.alignment; 
+        fieldsToUpdate.push('alignment'); 
+        console.log(`Setting alignment to ${style.alignment}`);
+    }
+    
+    // Process indentation options
+    if (style.indentStart !== undefined) { 
+        paragraphStyle.indentStart = { magnitude: style.indentStart, unit: 'PT' }; 
+        fieldsToUpdate.push('indentStart'); 
+        console.log(`Setting left indent to ${style.indentStart}pt`);
+    }
+    
+    if (style.indentEnd !== undefined) { 
+        paragraphStyle.indentEnd = { magnitude: style.indentEnd, unit: 'PT' }; 
+        fieldsToUpdate.push('indentEnd'); 
+        console.log(`Setting right indent to ${style.indentEnd}pt`);
+    }
+    
+    // Process spacing options
+    if (style.spaceAbove !== undefined) { 
+        paragraphStyle.spaceAbove = { magnitude: style.spaceAbove, unit: 'PT' }; 
+        fieldsToUpdate.push('spaceAbove'); 
+        console.log(`Setting space above to ${style.spaceAbove}pt`);
+    }
+    
+    if (style.spaceBelow !== undefined) { 
+        paragraphStyle.spaceBelow = { magnitude: style.spaceBelow, unit: 'PT' }; 
+        fieldsToUpdate.push('spaceBelow'); 
+        console.log(`Setting space below to ${style.spaceBelow}pt`);
+    }
+    
+    // Process named style types (headings, etc.)
+    if (style.namedStyleType !== undefined) { 
+        paragraphStyle.namedStyleType = style.namedStyleType; 
+        fieldsToUpdate.push('namedStyleType'); 
+        console.log(`Setting named style to ${style.namedStyleType}`);
+    }
+    
+    // Process page break control
+    if (style.keepWithNext !== undefined) { 
+        paragraphStyle.keepWithNext = style.keepWithNext; 
+        fieldsToUpdate.push('keepWithNext'); 
+        console.log(`Setting keepWithNext to ${style.keepWithNext}`);
+    }
 
-     const request: docs_v1.Schema$Request = {
+    // Verify we have styles to apply
+    if (fieldsToUpdate.length === 0) {
+        console.warn("No paragraph styling options were provided");
+        return null; // No styles to apply
+    }
+
+    // Build the request object
+    const request: docs_v1.Schema$Request = {
         updateParagraphStyle: {
             range: { startIndex, endIndex },
             paragraphStyle: paragraphStyle,
             fields: fieldsToUpdate.join(','),
         }
     };
-     return { request, fields: fieldsToUpdate };
-
+    
+    console.log(`Created paragraph style request with fields: ${fieldsToUpdate.join(', ')}`);
+    return { request, fields: fieldsToUpdate };
 }
 
 // --- Specific Feature Helpers ---

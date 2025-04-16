@@ -288,66 +288,104 @@ description: 'Applies paragraph-level formatting (alignment, spacing, named styl
 parameters: ApplyParagraphStyleToolParameters,
 execute: async (args: ApplyParagraphStyleToolArgs, { log }) => {
 const docs = await getDocsClient();
-let { startIndex, endIndex } = args.target as any; // Will be updated
+let startIndex: number | undefined;
+let endIndex: number | undefined;
 
-        log.info(`Applying paragraph style in doc ${args.documentId}. Target: ${JSON.stringify(args.target)}, Style: ${JSON.stringify(args.style)}`);
+        log.info(`Applying paragraph style to document ${args.documentId}`);
+        log.info(`Style options: ${JSON.stringify(args.style)}`);
+        log.info(`Target specification: ${JSON.stringify(args.target)}`);
 
         try {
-             // Determine target paragraph range
-             let targetIndexForLookup: number | undefined;
-
-             if ('textToFind' in args.target) {
-                const range = await GDocsHelpers.findTextRange(docs, args.documentId, args.target.textToFind, args.target.matchInstance);
-                if (!range) {
-                    throw new UserError(`Could not find instance ${args.target.matchInstance} of text "${args.target.textToFind}" to locate paragraph.`);
+            // STEP 1: Determine the target paragraph's range based on the targeting method
+            if ('textToFind' in args.target) {
+                // Find the text first
+                log.info(`Finding text "${args.target.textToFind}" (instance ${args.target.matchInstance || 1})`);
+                const textRange = await GDocsHelpers.findTextRange(
+                    docs, 
+                    args.documentId, 
+                    args.target.textToFind, 
+                    args.target.matchInstance || 1
+                );
+                
+                if (!textRange) {
+                    throw new UserError(`Could not find "${args.target.textToFind}" in the document.`);
                 }
-                targetIndexForLookup = range.startIndex; // Use the start index of found text
-                log.info(`Found text "${args.target.textToFind}" at index ${targetIndexForLookup} to locate paragraph.`);
+                
+                log.info(`Found text at range ${textRange.startIndex}-${textRange.endIndex}, now locating containing paragraph`);
+                
+                // Then find the paragraph containing this text
+                const paragraphRange = await GDocsHelpers.getParagraphRange(
+                    docs, 
+                    args.documentId, 
+                    textRange.startIndex
+                );
+                
+                if (!paragraphRange) {
+                    throw new UserError(`Found the text but could not determine the paragraph boundaries.`);
+                }
+                
+                startIndex = paragraphRange.startIndex;
+                endIndex = paragraphRange.endIndex;
+                log.info(`Text is contained within paragraph at range ${startIndex}-${endIndex}`);
+                
             } else if ('indexWithinParagraph' in args.target) {
-                 targetIndexForLookup = args.target.indexWithinParagraph;
+                // Find paragraph containing the specified index
+                log.info(`Finding paragraph containing index ${args.target.indexWithinParagraph}`);
+                const paragraphRange = await GDocsHelpers.getParagraphRange(
+                    docs, 
+                    args.documentId, 
+                    args.target.indexWithinParagraph
+                );
+                
+                if (!paragraphRange) {
+                    throw new UserError(`Could not find paragraph containing index ${args.target.indexWithinParagraph}.`);
+                }
+                
+                startIndex = paragraphRange.startIndex;
+                endIndex = paragraphRange.endIndex;
+                log.info(`Located paragraph at range ${startIndex}-${endIndex}`);
+                
             } else if ('startIndex' in args.target && 'endIndex' in args.target) {
-                 // User provided a range, assume it's the paragraph range
-                 startIndex = args.target.startIndex;
-                 endIndex = args.target.endIndex;
-                 log.info(`Using provided range ${startIndex}-${endIndex} for paragraph style.`);
+                // Use directly provided range
+                startIndex = args.target.startIndex;
+                endIndex = args.target.endIndex;
+                log.info(`Using provided paragraph range ${startIndex}-${endIndex}`);
             }
 
-            // If we need to find the paragraph boundaries based on an index within it
-            if (targetIndexForLookup !== undefined && (startIndex === undefined || endIndex === undefined)) {
-                 const paragraphRange = await GDocsHelpers.getParagraphRange(docs, args.documentId, targetIndexForLookup);
-                 if (!paragraphRange) {
-                     throw new UserError(`Could not determine paragraph boundaries containing index ${targetIndexForLookup}.`);
-                 }
-                 startIndex = paragraphRange.startIndex;
-                 endIndex = paragraphRange.endIndex;
-                 log.info(`Determined paragraph range as ${startIndex}-${endIndex} based on index ${targetIndexForLookup}.`);
-            }
-
-
+            // Verify that we have a valid range
             if (startIndex === undefined || endIndex === undefined) {
-                 throw new UserError("Target paragraph range could not be determined.");
+                throw new UserError("Could not determine target paragraph range from the provided information.");
             }
-             if (endIndex <= startIndex) {
-                 throw new UserError("Paragraph end index must be greater than start index for styling.");
+            
+            if (endIndex <= startIndex) {
+                throw new UserError(`Invalid paragraph range: end index (${endIndex}) must be greater than start index (${startIndex}).`);
             }
 
-            // Build the request
+            // STEP 2: Build and apply the paragraph style request
+            log.info(`Building paragraph style request for range ${startIndex}-${endIndex}`);
             const requestInfo = GDocsHelpers.buildUpdateParagraphStyleRequest(startIndex, endIndex, args.style);
-             if (!requestInfo) {
-                 return "No valid paragraph styling options were provided.";
+            
+            if (!requestInfo) {
+                return "No valid paragraph styling options were provided.";
             }
-
+            
+            log.info(`Applying styles: ${requestInfo.fields.join(', ')}`);
             await GDocsHelpers.executeBatchUpdate(docs, args.documentId, [requestInfo.request]);
-            return `Successfully applied paragraph style (${requestInfo.fields.join(', ')}) to range ${startIndex}-${endIndex}.`;
+            
+            return `Successfully applied paragraph styles (${requestInfo.fields.join(', ')}) to the paragraph.`;
 
         } catch (error: any) {
-            log.error(`Error applying paragraph style in doc ${args.documentId}: ${error.message || error}`);
+            // Detailed error logging
+            log.error(`Error applying paragraph style in doc ${args.documentId}:`);
+            log.error(error.stack || error.message || error);
+            
             if (error instanceof UserError) throw error;
             if (error instanceof NotImplementedError) throw error;
+            
+            // Provide a more helpful error message
             throw new UserError(`Failed to apply paragraph style: ${error.message || 'Unknown error'}`);
         }
     }
-
 });
 
 // --- Structure & Content Tools ---
