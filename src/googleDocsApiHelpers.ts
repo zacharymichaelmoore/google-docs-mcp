@@ -48,81 +48,136 @@ return {}; // Nothing to do
 }
 
 // --- Text Finding Helper ---
-// NOTE: This is a simplified version. A robust version needs to handle
-// text spanning multiple TextRuns, pagination, tables etc.
+// This improved version is more robust in handling various text structure scenarios
 export async function findTextRange(docs: Docs, documentId: string, textToFind: string, instance: number = 1): Promise<{ startIndex: number; endIndex: number } | null> {
 try {
-const res = await docs.documents.get({
-documentId,
-fields: 'body(content(paragraph(elements(startIndex,endIndex,textRun(content)))))',
-});
+    // Request more detailed information about the document structure
+    const res = await docs.documents.get({
+        documentId,
+        // Request more fields to handle various container types (not just paragraphs)
+        fields: 'body(content(paragraph(elements(startIndex,endIndex,textRun(content))),table,sectionBreak,tableOfContents,startIndex,endIndex))',
+    });
 
-        if (!res.data.body?.content) return null;
-
-        let fullText = '';
-        const segments: { text: string, start: number, end: number }[] = [];
-        res.data.body.content.forEach(element => {
-            element.paragraph?.elements?.forEach(pe => {
-                if (pe.textRun?.content && pe.startIndex && pe.endIndex) {
-                    const content = pe.textRun.content;
-                    fullText += content;
-                    segments.push({ text: content, start: pe.startIndex, end: pe.endIndex });
-                }
-            });
-        });
-
-        let startIndex = -1;
-        let endIndex = -1;
-        let foundCount = 0;
-        let searchStartIndex = 0;
-
-        while (foundCount < instance) {
-            const currentIndex = fullText.indexOf(textToFind, searchStartIndex);
-            if (currentIndex === -1) break;
-
-            foundCount++;
-            if (foundCount === instance) {
-                const targetStartInFullText = currentIndex;
-                const targetEndInFullText = currentIndex + textToFind.length;
-                let currentPosInFullText = 0;
-
-                for (const seg of segments) {
-                    const segStartInFullText = currentPosInFullText;
-                    const segTextLength = seg.text.length;
-                    const segEndInFullText = segStartInFullText + segTextLength;
-
-                    if (startIndex === -1 && targetStartInFullText >= segStartInFullText && targetStartInFullText < segEndInFullText) {
-                        startIndex = seg.start + (targetStartInFullText - segStartInFullText);
-                    }
-                    if (targetEndInFullText > segStartInFullText && targetEndInFullText <= segEndInFullText) {
-                        endIndex = seg.start + (targetEndInFullText - segStartInFullText);
-                        break;
-                    }
-                    currentPosInFullText = segEndInFullText;
-                }
-
-                if (startIndex === -1 || endIndex === -1) { // Mapping failed for this instance
-                    startIndex = -1; endIndex = -1;
-                    // Continue searching from *after* this failed mapping attempt
-                    searchStartIndex = currentIndex + 1;
-                    foundCount--; // Decrement count as this instance wasn't successfully mapped
-                    continue;
-                }
-                // Successfully mapped
-                 return { startIndex, endIndex };
-            }
-             // Prepare for next search iteration
-            searchStartIndex = currentIndex + 1;
-        }
-
-        return null; // Instance not found or mapping failed for all attempts
-    } catch (error: any) {
-        console.error(`Error finding text "${textToFind}" in doc ${documentId}: ${error.message}`);
-         if (error.code === 404) throw new UserError(`Document not found while searching text (ID: ${documentId}).`);
-         if (error.code === 403) throw new UserError(`Permission denied while searching text in doc (ID: ${documentId}).`);
-        throw new Error(`Failed to retrieve doc for text searching: ${error.message}`);
+    if (!res.data.body?.content) {
+        console.warn(`No content found in document ${documentId}`);
+        return null;
     }
 
+    // More robust text collection and index tracking
+    let fullText = '';
+    const segments: { text: string, start: number, end: number }[] = [];
+    
+    // Process all content elements, including structural ones
+    const collectTextFromContent = (content: any[]) => {
+        content.forEach(element => {
+            // Handle paragraph elements
+            if (element.paragraph?.elements) {
+                element.paragraph.elements.forEach((pe: any) => {
+                    if (pe.textRun?.content && pe.startIndex !== undefined && pe.endIndex !== undefined) {
+                        const content = pe.textRun.content;
+                        fullText += content;
+                        segments.push({ 
+                            text: content, 
+                            start: pe.startIndex, 
+                            end: pe.endIndex 
+                        });
+                    }
+                });
+            }
+            
+            // Handle table elements - this is simplified and might need expansion
+            if (element.table && element.table.tableRows) {
+                element.table.tableRows.forEach((row: any) => {
+                    if (row.tableCells) {
+                        row.tableCells.forEach((cell: any) => {
+                            if (cell.content) {
+                                collectTextFromContent(cell.content);
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // Add handling for other structural elements as needed
+        });
+    };
+    
+    collectTextFromContent(res.data.body.content);
+    
+    // Sort segments by starting position to ensure correct ordering
+    segments.sort((a, b) => a.start - b.start);
+    
+    console.log(`Document ${documentId} contains ${segments.length} text segments and ${fullText.length} characters in total.`);
+    
+    // Find the specified instance of the text
+    let startIndex = -1;
+    let endIndex = -1;
+    let foundCount = 0;
+    let searchStartIndex = 0;
+
+    while (foundCount < instance) {
+        const currentIndex = fullText.indexOf(textToFind, searchStartIndex);
+        if (currentIndex === -1) {
+            console.log(`Search text "${textToFind}" not found for instance ${foundCount + 1} (requested: ${instance})`);
+            break;
+        }
+
+        foundCount++;
+        console.log(`Found instance ${foundCount} of "${textToFind}" at position ${currentIndex} in full text`);
+        
+        if (foundCount === instance) {
+            const targetStartInFullText = currentIndex;
+            const targetEndInFullText = currentIndex + textToFind.length;
+            let currentPosInFullText = 0;
+            
+            console.log(`Target text range in full text: ${targetStartInFullText}-${targetEndInFullText}`);
+
+            for (const seg of segments) {
+                const segStartInFullText = currentPosInFullText;
+                const segTextLength = seg.text.length;
+                const segEndInFullText = segStartInFullText + segTextLength;
+
+                // Map from reconstructed text position to actual document indices
+                if (startIndex === -1 && targetStartInFullText >= segStartInFullText && targetStartInFullText < segEndInFullText) {
+                    startIndex = seg.start + (targetStartInFullText - segStartInFullText);
+                    console.log(`Mapped start to segment ${seg.start}-${seg.end}, position ${startIndex}`);
+                }
+                
+                if (targetEndInFullText > segStartInFullText && targetEndInFullText <= segEndInFullText) {
+                    endIndex = seg.start + (targetEndInFullText - segStartInFullText);
+                    console.log(`Mapped end to segment ${seg.start}-${seg.end}, position ${endIndex}`);
+                    break;
+                }
+                
+                currentPosInFullText = segEndInFullText;
+            }
+
+            if (startIndex === -1 || endIndex === -1) {
+                console.warn(`Failed to map text "${textToFind}" instance ${instance} to actual document indices`);
+                // Reset and try next occurrence
+                startIndex = -1; 
+                endIndex = -1;
+                searchStartIndex = currentIndex + 1;
+                foundCount--;
+                continue;
+            }
+            
+            console.log(`Successfully mapped "${textToFind}" to document range ${startIndex}-${endIndex}`);
+            return { startIndex, endIndex };
+        }
+        
+        // Prepare for next search iteration
+        searchStartIndex = currentIndex + 1;
+    }
+
+    console.warn(`Could not find instance ${instance} of text "${textToFind}" in document ${documentId}`);
+    return null; // Instance not found or mapping failed for all attempts
+} catch (error: any) {
+    console.error(`Error finding text "${textToFind}" in doc ${documentId}: ${error.message || 'Unknown error'}`);
+    if (error.code === 404) throw new UserError(`Document not found while searching text (ID: ${documentId}).`);
+    if (error.code === 403) throw new UserError(`Permission denied while searching text in doc ${documentId}.`);
+    throw new Error(`Failed to retrieve doc for text searching: ${error.message || 'Unknown error'}`);
+}
 }
 
 // --- Paragraph Boundary Helper ---
