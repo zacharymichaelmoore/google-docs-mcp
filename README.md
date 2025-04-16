@@ -4,6 +4,8 @@
 
 Connect Claude Desktop (or other MCP clients) to your Google Docs!
 
+> 🔥 **Check out [10 powerful tasks](SAMPLE_TASKS.md) you can accomplish with this enhanced server!**
+
 This enhanced server uses the Model Context Protocol (MCP) and the `fastmcp` library to provide comprehensive tools for reading, writing, formatting, and structuring Google Documents. It acts as a powerful bridge, allowing AI assistants like Claude to interact with your documents programmatically with advanced capabilities.
 
 **Features:**
