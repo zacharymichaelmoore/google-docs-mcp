@@ -1,18 +1,32 @@
-# Claude MCP x Google Docs
+# Ultimate Google Docs MCP Server
 
 ![Demo Animation](assets/google.docs.mcp.1.gif)
 
 Connect Claude Desktop (or other MCP clients) to your Google Docs!
 
-This server uses the Model Context Protocol (MCP) and the `fastmcp` library to provide tools for reading and appending text to Google Documents. It acts as a bridge, allowing AI assistants like Claude to interact with your documents programmatically.
+This enhanced server uses the Model Context Protocol (MCP) and the `fastmcp` library to provide comprehensive tools for reading, writing, formatting, and structuring Google Documents. It acts as a powerful bridge, allowing AI assistants like Claude to interact with your documents programmatically with advanced capabilities.
 
 **Features:**
 
-- **Read Documents:** Provides a `readGoogleDoc` tool to fetch the text content of a specified Google Doc.
-- **Append to Documents:** Provides an `appendToGoogleDoc` tool to add text to the end of a specified Google Doc.
-- **Format Text (by Content):** Provides a `formatMatchingText` tool to find specific text and apply character formatting (bold, color, etc.) to it. This is the primary method for formatting.
-- **Google Authentication:** Handles the OAuth 2.0 flow to securely authorize access to your Google Account.
-- **MCP Compliant:** Designed for use with MCP clients like Claude Desktop.
+### Document Access
+- **Read Documents:** Read content with `readGoogleDoc` (plain text, JSON structure, or markdown)
+- **Append to Documents:** Add text to documents with `appendToGoogleDoc`
+- **Insert Text:** Place text at specific positions with `insertText`
+- **Delete Content:** Remove content from a document with `deleteRange`
+
+### Formatting & Styling
+- **Text Formatting:** Apply rich styling with `applyTextStyle` (bold, italic, colors, etc.)
+- **Paragraph Formatting:** Control paragraph layout with `applyParagraphStyle` (alignment, spacing, etc.)
+- **Find & Format:** Format by text content using `formatMatchingText` (legacy support)
+
+### Document Structure
+- **Tables:** Create tables with `insertTable`
+- **Page Breaks:** Insert page breaks with `insertPageBreak`
+- **Experimental Features:** Tools like `fixListFormatting` for automatic list detection
+
+### Integration
+- **Google Authentication:** Secure OAuth 2.0 authentication
+- **MCP Compliant:** Designed for use with Claude and other MCP clients
 
 ---
 
@@ -177,8 +191,12 @@ Once configured, you should be able to use the tools in your chats with Claude:
 - "Use the `google-docs-mcp` server to read the document with ID `YOUR_GOOGLE_DOC_ID`."
 - "Can you get the content of Google Doc `YOUR_GOOGLE_DOC_ID`?"
 - "Append 'This was added by Claude!' to document `YOUR_GOOGLE_DOC_ID` using the `google-docs-mcp` tool."
-- "Using `google-docs-mcp`, make the text 'Important Section' bold in document `YOUR_GOOGLE_DOC_ID` using the `formatMatchingText` tool."
-- "Use `formatMatchingText` via `google-docs-mcp` to find the first instance of 'Project Alpha' and make it blue (#0000FF) in doc `YOUR_GOOGLE_DOC_ID`."
+
+### Advanced Usage Examples:
+- **Text Styling**: "Use `applyTextStyle` to make the text 'Important Section' bold and red (#FF0000) in document `YOUR_GOOGLE_DOC_ID`."
+- **Paragraph Styling**: "Use `applyParagraphStyle` to center-align the paragraph containing 'Title Here' in document `YOUR_GOOGLE_DOC_ID`."
+- **Table Creation**: "Insert a 3x4 table at index 500 in document `YOUR_GOOGLE_DOC_ID` using the `insertTable` tool."
+- **Legacy Formatting**: "Use `formatMatchingText` to find the second instance of 'Project Alpha' and make it blue (#0000FF) in doc `YOUR_GOOGLE_DOC_ID`."
 
 Remember to replace `YOUR_GOOGLE_DOC_ID` with the actual ID from a Google Doc's URL (the long string between `/d/` and `/edit`).
 
