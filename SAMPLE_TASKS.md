@@ -1,6 +1,8 @@
-# 10 Powerful Tasks with the Ultimate Google Docs MCP Server
+# 15 Powerful Tasks with the Ultimate Google Docs & Drive MCP Server
 
-This document showcases practical examples of what you can accomplish with the enhanced Google Docs MCP Server. These examples demonstrate how AI assistants like Claude can perform sophisticated document formatting and structuring tasks through the MCP interface.
+This document showcases practical examples of what you can accomplish with the enhanced Google Docs & Drive MCP Server. These examples demonstrate how AI assistants like Claude can perform sophisticated document formatting, structuring, and file management tasks through the MCP interface.
+
+## Document Formatting & Structure Tasks
 
 ## 1. Create and Format a Document Header
 
@@ -148,4 +150,81 @@ Steps:
 6. Apply consistent spacing between sections
 ```
 
-These examples demonstrate the power and flexibility of the enhanced Google Docs MCP Server, showcasing how AI assistants can help with sophisticated document formatting and structuring tasks.
+These examples demonstrate the power and flexibility of the enhanced Google Docs & Drive MCP Server, showcasing how AI assistants can help with sophisticated document formatting, structuring, and comprehensive file management tasks.
+
+## Google Drive Management Tasks
+
+## 11. Organize Project Files Automatically
+
+```
+Task: "Set up a complete project structure and organize existing files."
+
+Steps:
+1. Create a main project folder using createFolder
+2. Create subfolders for different aspects (Documents, Templates, Archive)
+3. Search for project-related documents using searchGoogleDocs
+4. Move relevant documents to appropriate subfolders with moveFile
+5. Create a project index document listing all resources
+6. Format the index with links to all project documents
+```
+
+## 12. Create Document Templates and Generate Reports
+
+```
+Task: "Set up a template system and generate standardized reports."
+
+Steps:
+1. Create a Templates folder using createFolder
+2. Create template documents with placeholder text ({{DATE}}, {{NAME}}, etc.)
+3. Use createFromTemplate to generate new reports from templates
+4. Apply text replacements to customize each report
+5. Organize generated reports in appropriate folders
+6. Create a tracking document listing all generated reports
+```
+
+## 13. Archive and Clean Up Old Documents
+
+```
+Task: "Archive outdated documents and organize current files."
+
+Steps:
+1. Create an Archive folder for old documents using createFolder
+2. Use getRecentGoogleDocs to find documents older than 90 days
+3. Review and move old documents to Archive using moveFile
+4. Delete unnecessary duplicate files using deleteFile
+5. Rename documents with consistent naming conventions using renameFile
+6. Create an archive index document for reference
+```
+
+## 14. Duplicate and Distribute Document Sets
+
+```
+Task: "Create personalized versions of documents for different teams."
+
+Steps:
+1. Create team-specific folders using createFolder
+2. Copy master documents to each team folder using copyFile
+3. Rename copied documents with team-specific names using renameFile
+4. Customize document content for each team using text replacement
+5. Apply team-specific formatting and branding
+6. Create distribution tracking documents
+```
+
+## 15. Comprehensive File Management and Reporting
+
+```
+Task: "Generate a complete inventory and management report of all documents."
+
+Steps:
+1. Use listFolderContents to catalog all folders and their contents
+2. Use getDocumentInfo to gather detailed metadata for each document
+3. Create a master inventory document with all file information
+4. Format the inventory as a searchable table with columns for:
+   - Document name and ID
+   - Creation and modification dates
+   - Owner and last modifier
+   - Folder location
+   - File size and sharing status
+5. Add summary statistics and organization recommendations
+6. Set up automated folder structures for better organization
+```
