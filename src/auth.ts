@@ -17,7 +17,7 @@ const CREDENTIALS_PATH = path.join(projectRootDir, 'credentials.json');
 
 const SCOPES = [
   'https://www.googleapis.com/auth/documents',
-  'https://www.googleapis.com/auth/drive.file' // Or scope used in Step 1
+  'https://www.googleapis.com/auth/drive' // Full Drive access for listing, searching, and document discovery
 ];
 
 async function loadSavedCredentialsIfExist(): Promise<OAuth2Client | null> {

@@ -1,16 +1,17 @@
-# Ultimate Google Docs MCP Server
+# Ultimate Google Docs & Drive MCP Server
 
 ![Demo Animation](assets/google.docs.mcp.1.gif)
 
-Connect Claude Desktop (or other MCP clients) to your Google Docs!
+Connect Claude Desktop (or other MCP clients) to your Google Docs and Google Drive!
 
-> 🔥 **Check out [10 powerful tasks](SAMPLE_TASKS.md) you can accomplish with this enhanced server!**
+> 🔥 **Check out [15 powerful tasks](SAMPLE_TASKS.md) you can accomplish with this enhanced server!**
+> 📁 **NEW:** Complete Google Drive file management capabilities!
 
-This enhanced server uses the Model Context Protocol (MCP) and the `fastmcp` library to provide comprehensive tools for reading, writing, formatting, and structuring Google Documents. It acts as a powerful bridge, allowing AI assistants like Claude to interact with your documents programmatically with advanced capabilities.
+This comprehensive server uses the Model Context Protocol (MCP) and the `fastmcp` library to provide tools for reading, writing, formatting, structuring Google Documents, and managing your entire Google Drive. It acts as a powerful bridge, allowing AI assistants like Claude to interact with your documents and files programmatically with advanced capabilities.
 
 **Features:**
 
-### Document Access
+### Document Access & Editing
 - **Read Documents:** Read content with `readGoogleDoc` (plain text, JSON structure, or markdown)
 - **Append to Documents:** Add text to documents with `appendToGoogleDoc`
 - **Insert Text:** Place text at specific positions with `insertText`
@@ -26,9 +27,17 @@ This enhanced server uses the Model Context Protocol (MCP) and the `fastmcp` lib
 - **Page Breaks:** Insert page breaks with `insertPageBreak`
 - **Experimental Features:** Tools like `fixListFormatting` for automatic list detection
 
+### 🆕 Google Drive File Management
+- **Document Discovery:** Find and list documents with `listGoogleDocs`, `searchGoogleDocs`, `getRecentGoogleDocs`
+- **Document Information:** Get detailed metadata with `getDocumentInfo`
+- **Folder Management:** Create folders (`createFolder`), list contents (`listFolderContents`), get info (`getFolderInfo`)
+- **File Operations:** Move (`moveFile`), copy (`copyFile`), rename (`renameFile`), delete (`deleteFile`)
+- **Document Creation:** Create new docs (`createDocument`) or from templates (`createFromTemplate`)
+
 ### Integration
-- **Google Authentication:** Secure OAuth 2.0 authentication
+- **Google Authentication:** Secure OAuth 2.0 authentication with full Drive access
 - **MCP Compliant:** Designed for use with Claude and other MCP clients
+- **VS Code Integration:** [Setup guide](vscode.md) for VS Code MCP extension
 
 ---
 
