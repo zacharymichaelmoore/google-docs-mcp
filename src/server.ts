@@ -719,6 +719,7 @@ server.addTool({
       const response = await drive.replies.create({
         fileId: args.documentId,
         commentId: args.commentId,
+        fields: 'id,content,author,createdTime',
         requestBody: {
           content: args.replyText
         }
