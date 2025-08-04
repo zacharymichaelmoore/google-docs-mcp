@@ -104,7 +104,8 @@ name: 'readGoogleDoc',
 description: 'Reads the content of a specific Google Document, optionally returning structured data.',
 parameters: DocumentIdParameter.extend({
 format: z.enum(['text', 'json', 'markdown']).optional().default('text')
-.describe("Output format: 'text' (plain text, possibly truncated), 'json' (raw API structure, complex), 'markdown' (experimental conversion).")
+.describe("Output format: 'text' (plain text), 'json' (raw API structure, complex), 'markdown' (experimental conversion)."),
+maxLength: z.number().optional().describe('Maximum character limit for text output. If not specified, returns full document content. Use this to limit very large documents.')
 }),
 execute: async (args, { log }) => {
 const docs = await getDocsClient();
@@ -122,7 +123,12 @@ log.info(`Reading Google Doc: ${args.documentId}, Format: ${args.format}`);
         log.info(`Fetched doc: ${args.documentId}`);
 
         if (args.format === 'json') {
-            return JSON.stringify(res.data, null, 2); // Return raw structure
+            const jsonContent = JSON.stringify(res.data, null, 2);
+            // Apply length limit to JSON if specified
+            if (args.maxLength && jsonContent.length > args.maxLength) {
+                return jsonContent.substring(0, args.maxLength) + `\n... [JSON truncated: ${jsonContent.length} total chars]`;
+            }
+            return jsonContent;
         }
 
         if (args.format === 'markdown') {
@@ -132,20 +138,52 @@ log.info(`Reading Google Doc: ${args.documentId}, Format: ${args.format}`);
             // return convertDocsJsonToMarkdown(res.data);
         }
 
-        // Default: Text format
+        // Default: Text format - extract all text content
         let textContent = '';
+        let elementCount = 0;
+        
+        // Process all content elements
         res.data.body?.content?.forEach(element => {
-            element.paragraph?.elements?.forEach(pe => {
-            textContent += pe.textRun?.content || '';
-            });
+            elementCount++;
+            
+            // Handle paragraphs
+            if (element.paragraph?.elements) {
+                element.paragraph.elements.forEach(pe => {
+                    if (pe.textRun?.content) {
+                        textContent += pe.textRun.content;
+                    }
+                });
+            }
+            
+            // Handle tables
+            if (element.table?.tableRows) {
+                element.table.tableRows.forEach(row => {
+                    row.tableCells?.forEach(cell => {
+                        cell.content?.forEach(cellElement => {
+                            cellElement.paragraph?.elements?.forEach(pe => {
+                                if (pe.textRun?.content) {
+                                    textContent += pe.textRun.content;
+                                }
+                            });
+                        });
+                    });
+                });
+            }
         });
 
         if (!textContent.trim()) return "Document found, but appears empty.";
 
-        // Basic truncation for text mode
-        const maxLength = 4000; // Increased limit
-        const truncatedContent = textContent.length > maxLength ? textContent.substring(0, maxLength) + `... [truncated ${textContent.length} chars]` : textContent;
-        return `Content:\n---\n${truncatedContent}`;
+        const totalLength = textContent.length;
+        log.info(`Document contains ${totalLength} characters across ${elementCount} elements`);
+
+        // Apply length limit only if specified
+        if (args.maxLength && totalLength > args.maxLength) {
+            const truncatedContent = textContent.substring(0, args.maxLength);
+            return `Content (truncated to ${args.maxLength} chars of ${totalLength} total):\n---\n${truncatedContent}\n\n... [Document continues for ${totalLength - args.maxLength} more characters. Use maxLength parameter to adjust limit or remove it to get full content.]`;
+        }
+
+        // Return full content
+        return `Content (${totalLength} characters):\n---\n${textContent}`;
 
     } catch (error: any) {
          log.error(`Error reading doc ${args.documentId}: ${error.message || error}`);
