@@ -41,7 +41,8 @@ async function loadClientSecrets() {
   return {
       client_id: key.client_id,
       client_secret: key.client_secret,
-      redirect_uris: key.redirect_uris
+      redirect_uris: key.redirect_uris || ['http://localhost:3000/'], // Default for web clients
+      client_type: keys.web ? 'web' : 'installed'
   };
 }
 
@@ -58,8 +59,12 @@ async function saveCredentials(client: OAuth2Client): Promise<void> {
 }
 
 async function authenticate(): Promise<OAuth2Client> {
-  const { client_secret, client_id, redirect_uris } = await loadClientSecrets();
-  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris?.[0]);
+  const { client_secret, client_id, redirect_uris, client_type } = await loadClientSecrets();
+  // For web clients, use the configured redirect URI; for desktop clients, use 'urn:ietf:wg:oauth:2.0:oob'
+  const redirectUri = client_type === 'web' ? redirect_uris[0] : 'urn:ietf:wg:oauth:2.0:oob';
+  console.error(`DEBUG: Using redirect URI: ${redirectUri}`);
+  console.error(`DEBUG: Client type: ${client_type}`);
+  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirectUri);
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
@@ -68,6 +73,7 @@ async function authenticate(): Promise<OAuth2Client> {
     scope: SCOPES.join(' '),
   });
 
+  console.error('DEBUG: Generated auth URL:', authorizeUrl);
   console.error('Authorize this app by visiting this url:', authorizeUrl);
   const code = await rl.question('Enter the code from that page here: ');
   rl.close();
