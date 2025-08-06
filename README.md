@@ -27,6 +27,14 @@ This comprehensive server uses the Model Context Protocol (MCP) and the `fastmcp
 - **Page Breaks:** Insert page breaks with `insertPageBreak`
 - **Experimental Features:** Tools like `fixListFormatting` for automatic list detection
 
+### 🆕 Comment Management
+- **List Comments:** View all comments in a document with `listComments` (shows author, date, and quoted text)
+- **Get Comment Details:** Get specific comment with replies using `getComment`
+- **Add Comments:** Create new comments anchored to text with `addComment`
+- **Reply to Comments:** Add replies to existing comments with `replyToComment`
+- **Resolve Comments:** Mark comments as resolved with `resolveComment`
+- **Delete Comments:** Remove comments from documents with `deleteComment`
+
 ### 🆕 Google Drive File Management
 - **Document Discovery:** Find and list documents with `listGoogleDocs`, `searchGoogleDocs`, `getRecentGoogleDocs`
 - **Document Information:** Get detailed metadata with `getDocumentInfo`
