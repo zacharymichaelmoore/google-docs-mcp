@@ -1,6 +1,7 @@
 // src/auth.ts
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { JWT } from 'google-auth-library'; // ADDED: Import for Service Account client
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as readline from 'readline/promises';
@@ -19,6 +20,34 @@ const SCOPES = [
   'https://www.googleapis.com/auth/documents',
   'https://www.googleapis.com/auth/drive' // Full Drive access for listing, searching, and document discovery
 ];
+
+// --- NEW FUNCTION: Handles Service Account Authentication ---
+// This entire function is new. It is called only when the
+// SERVICE_ACCOUNT_PATH environment variable is set.
+async function authorizeWithServiceAccount(): Promise<JWT> {
+  const serviceAccountPath = process.env.SERVICE_ACCOUNT_PATH!; // We know this is set if we are in this function
+  try {
+    const keyFileContent = await fs.readFile(serviceAccountPath, 'utf8');
+    const serviceAccountKey = JSON.parse(keyFileContent);
+
+    const auth = new JWT({
+      email: serviceAccountKey.client_email,
+      key: serviceAccountKey.private_key,
+      scopes: SCOPES,
+    });
+    await auth.authorize();
+    console.error('Service Account authentication successful!');
+    return auth;
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      console.error(`FATAL: Service account key file not found at path: ${serviceAccountPath}`);
+      throw new Error(`Service account key file not found. Please check the path in SERVICE_ACCOUNT_PATH.`);
+    }
+    console.error('FATAL: Error loading or authorizing the service account key:', error.message);
+    throw new Error('Failed to authorize using the service account. Ensure the key file is valid and the path is correct.');
+  }
+}
+// --- NEW FUNCTION END ---
 
 async function loadSavedCredentialsIfExist(): Promise<OAuth2Client | null> {
   try {
@@ -94,14 +123,25 @@ async function authenticate(): Promise<OAuth2Client> {
   }
 }
 
-export async function authorize(): Promise<OAuth2Client> {
-  let client = await loadSavedCredentialsIfExist();
-  if (client) {
-    // Optional: Add token refresh logic here if needed, though library often handles it.
-    console.error('Using saved credentials.');
+// --- MODIFIED: The Main Exported Function ---
+// This function now acts as a router. It checks for the environment
+// variable and decides which authentication method to use.
+export async function authorize(): Promise<OAuth2Client | JWT> {
+  // Check if the Service Account environment variable is set.
+  if (process.env.SERVICE_ACCOUNT_PATH) {
+    console.error('Service account path detected. Attempting service account authentication...');
+    return authorizeWithServiceAccount();
+  } else {
+    // If not, execute the original OAuth 2.0 flow exactly as it was.
+    console.error('No service account path detected. Falling back to standard OAuth 2.0 flow...');
+    let client = await loadSavedCredentialsIfExist();
+    if (client) {
+      // Optional: Add token refresh logic here if needed, though library often handles it.
+      console.error('Using saved credentials.');
+      return client;
+    }
+    console.error('Starting authentication flow...');
+    client = await authenticate();
     return client;
   }
-  console.error('Starting authentication flow...');
-  client = await authenticate();
-  return client;
 }
