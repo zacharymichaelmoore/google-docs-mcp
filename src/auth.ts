@@ -47,7 +47,7 @@ async function authorizeWithServiceAccount(): Promise<JWT> {
     throw new Error('Failed to authorize using the service account. Ensure the key file is valid and the path is correct.');
   }
 }
-// --- NEW FUNCTION END ---
+// --- END OF NEW FUNCTION---
 
 async function loadSavedCredentialsIfExist(): Promise<OAuth2Client | null> {
   try {
@@ -145,3 +145,4 @@ export async function authorize(): Promise<OAuth2Client | JWT> {
     return client;
   }
 }
+// --- END OF MODIFIED: The Main Exported Function ---
